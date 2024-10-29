@@ -3,7 +3,7 @@ use skim::prelude::*;
 
 pub fn open_selection_dialog(bookmarks: &Vec<Bookmark>) -> Result<String, String> {
     let options = SkimOptionsBuilder::default()
-        .height(Some("20%"))
+        .height(Some("50%"))
         .multi(false)
         .preview(Some("inline"))
         .layout("reverse")

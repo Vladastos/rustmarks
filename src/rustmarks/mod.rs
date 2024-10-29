@@ -1,5 +1,7 @@
+use std::fs::ReadDir;
+
 use rusqlite::Connection;
-use skim::prelude::*;
+use skim::prelude::*;   
 mod sqlite_repository;
 mod ui;
 const DATABASE: &str = "/home/vlad/.config/rustmarks/rustmarks.db";
@@ -158,7 +160,7 @@ fn get_bookmark_string(bookmark: &Bookmark) -> String {
 }
 
 fn get_bookmark_string_pretty(bookmark: &Bookmark) -> String {
-    let type_icon = get_type_icon(bookmark);
+    let type_icon = get_type_icon(&bookmark.path);
     let name = match &bookmark.name {
         Some(name) => name.to_string(),
         None => String::from(""),
@@ -178,8 +180,8 @@ fn get_bookmark_string_pretty(bookmark: &Bookmark) -> String {
     result
 }
 
-fn get_type_icon(bookmark: &Bookmark) -> String {
-    let path = match &bookmark.path {
+fn get_type_icon(path: &Option<String>) -> String {
+    let path = match &path {
         Some(path) => path.to_string(),
         None => String::from(""),
     };
@@ -195,9 +197,9 @@ fn get_type_icon(bookmark: &Bookmark) -> String {
 }
 
 fn get_bookmark_preview(bookmark: &Bookmark) -> String{
-    let type_icon = get_type_icon(bookmark);
+    let type_icon = get_type_icon(&bookmark.path);
     let path_string = match &bookmark.path {
-        Some(path) => format!("Path: {}",path.to_string()),
+        Some(path) => format!("\nPath: {}",path.to_string()),
         None => String::from(""),
     };
 
@@ -207,23 +209,47 @@ fn get_bookmark_preview(bookmark: &Bookmark) -> String{
     };
 
     let description_string = match &bookmark.description {
-        Some(description) => format!("Description :{}",description.to_string()),
+        Some(description) => format!("\nDescription :{}",description.to_string()),
         None => String::from(""),
     };
 
-    let eza_output = get_eza_output(bookmark);
+    let preview_content = get_preview_content(bookmark);
 
-    let result = format!(" {} {} \n {} \n {}",type_icon,name_string,path_string,description_string);
+    let result = format!(" {}{}{}{}{}",type_icon,name_string,path_string,description_string,preview_content);
     result
 }
-fn get_eza_output(bookmark: &Bookmark) -> String {
+fn get_preview_content(bookmark: &Bookmark) -> String {
     let path_string = match &bookmark.path {
         Some(path) => path.to_string(),
         None => String::from(""),
     };
+    let mut result = String::from("");
+    //check if path is a file
+    if std::path::Path::new(&path_string).is_file() {
+        let content = match std::fs::read_to_string(&path_string) {
+            Ok(content) => content,
+            Err(_) => String::from(""),
+        };
 
-    path_string
+        if !content.is_empty() {
+            result = format!("\n{}", content); // add content
+        }
+    } else if std::path::Path::new(&path_string).is_dir() {
+        let read_dir_result = std::fs::read_dir(&path_string);
+        if let Ok(read_dir) = read_dir_result {
+            for entry in read_dir {
+                if let Ok(entry) = entry {
 
+                    let type_icon = get_type_icon(&Option::from(entry.path().to_str().unwrap().to_string()));
+                    let filename = entry.file_name().into_string();
+                    let path = filename.unwrap();
+                    result = format!("{}\n {} {}",result,type_icon, path);
+                    
+                }
+            }
+        }
+    }
+    result
 }
 fn parse_bookmark(
     id: &Option<i32>,
