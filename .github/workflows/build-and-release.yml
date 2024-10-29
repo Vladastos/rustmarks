@@ -1,0 +1,76 @@
+name: Build and Release Rust
+
+permissions:
+  packages: write
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+jobs:
+
+  build:
+    name: Set Version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check changes file
+        id: check-changes
+        run: |
+          if [ ! -f ./changes.md ]; then
+            echo "Changes file not found"
+            exit 1
+          fi
+
+      - name: Set Version Variable
+        id: set-version-variable
+        run: echo "RUSTMARKS_VERSION=$(git describe --abbrev=0 --tags)" | sed 's/v//g' >> $GITHUB_ENV
+
+      - name: Build
+        run: make build
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.RUSTMARKS_VERSION }}
+          release_name: ${{ env.RUSTMARKS_VERSION }}
+          draft: false
+          prerelease: false
+          body_path: ./changes.md
+
+      - name: Upload assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/release/rustmarks
+          asset_name: rustmarks_${{ env.RUSTMARKS_VERSION }}_linux_amd64
+          asset_content_type: application/octet-stream
+
+      - name: Update changelog
+        run: |
+          echo "## ${{ env.RUSTMARKS_VERSION }}" >> ./CHANGELOG.md
+          echo "" >> ./CHANGELOG.md
+          cat ./changes.md >> ./CHANGELOG.md
+
+      - name: Delete changes file
+        run: |
+          rm ./changes.md
+          git add .
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -m "Release ${{ env.RUSTMARKS_VERSION }}"
+
+      - name: Push changes
+        run: |
+          git push origin HEAD:main
