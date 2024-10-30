@@ -1,6 +1,6 @@
 use rusqlite::Connection;
+use skim::prelude::*;
 use std::path::PathBuf;
-use skim::prelude::*;   
 mod sqlite_repository;
 mod ui;
 const DATABASE: &str = "/home/vlad/.config/rustmarks/rustmarks.db";
@@ -195,28 +195,29 @@ fn get_type_icon(path: &Option<String>) -> String {
     }
 }
 
-
-
-fn get_bookmark_preview(bookmark: &Bookmark) -> String{
+fn get_bookmark_preview(bookmark: &Bookmark) -> String {
     let type_icon = get_type_icon(&bookmark.path);
     let path_string = match &bookmark.path {
-        Some(path) => format!("\n Path: {}",path.to_string()),
+        Some(_) => format!(""),
         None => String::from(""),
     };
 
     let name_string = match &bookmark.name {
-        Some(name) => format!("{} \n",name.to_string()),
+        Some(name) => format!("{} \n", name.to_string()),
         None => String::from(""),
     };
 
     let description_string = match &bookmark.description {
-        Some(description) => format!("\n {} \n",description.to_string()),
-        None => String::from(""),
+        Some(description) => format!("\n {}", description.to_string()),
+        None => String::from("\n"),
     };
     let separator_string = String::from("\n-----------------------------------------");
     let preview_content = get_preview_content(bookmark);
 
-    let result = format!(" {} {}{}{}{}{}",type_icon,name_string,description_string,path_string,separator_string,preview_content);
+    let result = format!(
+        " {} {}{}{}{}{}",
+        type_icon, name_string, description_string, path_string, separator_string, preview_content
+    );
     result
 }
 fn get_preview_content(bookmark: &Bookmark) -> String {
@@ -236,16 +237,28 @@ fn get_preview_content(bookmark: &Bookmark) -> String {
             result = format!("\n{}", content); // add content
         }
     } else if std::path::Path::new(&path_string).is_dir() {
-        let eza_dir =eza::fs::Dir::read_dir(PathBuf::from(path_string.clone()));
+        let eza_dir = eza::fs::Dir::read_dir(PathBuf::from(path_string.clone()));
         if let Ok(eza_dir) = eza_dir {
-            let files =eza_dir.files(eza::fs::DotFilter::JustFiles, None, true, true, false);
+            let files = eza_dir.files(eza::fs::DotFilter::JustFiles, None, true, true, false);
+            // TODO: find a better way to get the last file
+            let last_file = eza_dir.files(eza::fs::DotFilter::JustFiles, None, true, true, false).last().unwrap();
 
+            // Add folder name to the result
+            let folder_name =eza_dir.path.file_name().unwrap().to_str().unwrap().to_string();
+            result = format!("\n{} {}", "📁",folder_name);
+            
             // TODO: Sort directories first
-            files.for_each(|file| {
-                let type_icon = get_type_icon(&Option::from(file.path.to_str().unwrap().to_string()));
+            for file in files {
+                let type_icon =
+                    get_type_icon(&Option::from(file.path.to_str().unwrap().to_string()));
                 let filename = file.name;
-                result = format!("{}\n {} {}",result,type_icon, filename);
-            });
+                let tree_char = if last_file.absolute_path() == Some(&file.path) {
+                    "└─"
+                } else {
+                    "├─"
+                };
+                result = format!("{}\n{}{} {}", result, tree_char, type_icon, filename);
+            }
         }
     }
     result
