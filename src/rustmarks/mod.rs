@@ -1,6 +1,5 @@
-use std::fs::ReadDir;
-
 use rusqlite::Connection;
+use std::path::PathBuf;
 use skim::prelude::*;   
 mod sqlite_repository;
 mod ui;
@@ -196,26 +195,28 @@ fn get_type_icon(path: &Option<String>) -> String {
     }
 }
 
+
+
 fn get_bookmark_preview(bookmark: &Bookmark) -> String{
     let type_icon = get_type_icon(&bookmark.path);
     let path_string = match &bookmark.path {
-        Some(path) => format!("\nPath: {}",path.to_string()),
+        Some(path) => format!("\n Path: {}",path.to_string()),
         None => String::from(""),
     };
 
     let name_string = match &bookmark.name {
-        Some(name) => format!("{}",name.to_string()),
+        Some(name) => format!("{} \n",name.to_string()),
         None => String::from(""),
     };
 
     let description_string = match &bookmark.description {
-        Some(description) => format!("\nDescription :{}",description.to_string()),
+        Some(description) => format!("\n {} \n",description.to_string()),
         None => String::from(""),
     };
-
+    let separator_string = String::from("\n-----------------------------------------");
     let preview_content = get_preview_content(bookmark);
 
-    let result = format!(" {}{}{}{}{}",type_icon,name_string,path_string,description_string,preview_content);
+    let result = format!(" {} {}{}{}{}{}",type_icon,name_string,description_string,path_string,separator_string,preview_content);
     result
 }
 fn get_preview_content(bookmark: &Bookmark) -> String {
@@ -235,18 +236,16 @@ fn get_preview_content(bookmark: &Bookmark) -> String {
             result = format!("\n{}", content); // add content
         }
     } else if std::path::Path::new(&path_string).is_dir() {
-        let read_dir_result = std::fs::read_dir(&path_string);
-        if let Ok(read_dir) = read_dir_result {
-            for entry in read_dir {
-                if let Ok(entry) = entry {
+        let eza_dir =eza::fs::Dir::read_dir(PathBuf::from(path_string.clone()));
+        if let Ok(eza_dir) = eza_dir {
+            let files =eza_dir.files(eza::fs::DotFilter::JustFiles, None, true, true, false);
 
-                    let type_icon = get_type_icon(&Option::from(entry.path().to_str().unwrap().to_string()));
-                    let filename = entry.file_name().into_string();
-                    let path = filename.unwrap();
-                    result = format!("{}\n {} {}",result,type_icon, path);
-                    
-                }
-            }
+            // TODO: Sort directories first
+            files.for_each(|file| {
+                let type_icon = get_type_icon(&Option::from(file.path.to_str().unwrap().to_string()));
+                let filename = file.name;
+                result = format!("{}\n {} {}",result,type_icon, filename);
+            });
         }
     }
     result
