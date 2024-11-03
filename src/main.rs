@@ -63,6 +63,9 @@ enum Commands {
 
     // List all bookmarks
     List {},
+
+    // Print the command for selected bookmark
+    Command {},
 }
 
 fn main() {
@@ -76,6 +79,9 @@ fn main() {
         }) => add_bookmark(name, path, description),
         Some(Commands::Remove { id }) => remove_bookmark(id),
         Some(Commands::List {}) => list_bookmarks(),
+        Some(Commands::Command {}) => {
+            rustmarks::print_command();
+        }
         Some(Commands::Update {
             id,
             path,

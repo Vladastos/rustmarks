@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rusqlite::Connection;
 use skim::prelude::*;
 mod sqlite_repository;
@@ -13,6 +15,30 @@ pub fn main() {
         return;
     }
     println!("{}", result.unwrap());
+}
+
+pub fn print_command() {
+    let connection = Connection::open(DATABASE).unwrap();
+    let bookmarks = get_bookmark_vec(&connection);
+    let result = ui::open_selection_dialog(&bookmarks);
+    if let Err(e) = result {
+        println!("Error: {}", e);
+        return;
+    }
+    let editor = std::env::var("EDITOR").unwrap_or("vi".to_string());
+    let mut command = String::from("");
+    let path = PathBuf::from(result.unwrap());
+    match path {
+        p if p.is_file() => {
+            command = format!("{} {}", editor, p.display());
+        }
+        p if p.is_dir() => {
+            command = format!("cd {}", p.display());
+        }
+        _ => {}
+    }
+
+    println!("{}", command);
 }
 
 pub fn add_bookmark(name: &Option<String>, path: &String, description: &Option<String>) {
