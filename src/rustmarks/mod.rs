@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, process::exit};
 
 use rusqlite::Connection;
 use skim::prelude::*;
@@ -53,11 +53,16 @@ pub fn add_bookmark(name: &Option<String>, path: &String, description: &Option<S
     }
 }
 
-pub fn list_bookmarks() {
+pub fn list_bookmarks(paths:bool) {
     let connection = Connection::open(DATABASE).unwrap();
     let bookmarks = get_bookmark_vec(&connection);
     for bookmark in bookmarks {
-        let str = ui::get_bookmark_string(&bookmark);
+        let str: String;
+        if !paths {
+            str = ui::get_bookmark_string(&bookmark);
+        } else {
+            str = bookmark.path.unwrap_or("".to_string());   
+        }
         println!("{}", str);
     }
 }
@@ -121,6 +126,20 @@ pub fn update_bookmark(
         return;
     }
     println!("Bookmark updated");
+}
+
+pub fn check_bookmark(path: &Option<String>) {
+    let connection = Connection::open(DATABASE).unwrap();
+    let path_string = path.clone().unwrap_or(std::env::current_dir().unwrap().display().to_string());
+    let result = sqlite_repository::check_bookmark(&path_string, &connection);
+    if let Err(e) = result {
+        println!("Error: {}", e);
+        return;
+    }
+    match result.unwrap() {
+        true => exit(0),
+        false => exit(1),
+    }
 }
 
 fn get_bookmark_vec(connection: &Connection) -> Vec<Bookmark> {

@@ -7,23 +7,15 @@ pub fn add_bookmark(
     create_table(connection)?;
 
     // Check if bookmark with given path exists
-    let mut stmt = connection.prepare("SELECT * FROM bookmarks WHERE path = ?")?;
-    let bookmark_check = stmt.query_row(&[&bookmark.path], |row| {
-        Ok(Bookmark {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            path: row.get(2)?,
-            description: row.get(3)?,
-        })
-    });
-    if bookmark_check.is_ok() {
-        println!(
-            "Bookmark with path {} already exists",
-            bookmark_check.unwrap().path.to_owned().unwrap()
-        );
+    let result = check_bookmark(&bookmark.path.clone().unwrap(), connection);
+    if let Err(e) = result {
+        println!("Error: {}", e);
+        return Err(e);
+    }
+    if result.unwrap() {
+        println!("Bookmark with path {} already exists", bookmark.path.clone().unwrap());
         return Err(rusqlite::Error::InvalidQuery);
     }
-
     let mut stmt =
         connection.prepare("INSERT INTO bookmarks (name, path, description) VALUES (?, ?, ?)")?;
     stmt.execute(&[&bookmark.name, &bookmark.path, &bookmark.description])?;
@@ -114,6 +106,24 @@ pub fn update_bookmark(
     ])?;
 
     Ok(new_bookmark.clone())
+}
+
+
+pub fn check_bookmark(
+    path: &String,
+    connection: &rusqlite::Connection,
+) -> Result<bool, rusqlite::Error> {
+    create_table(connection)?;
+    let mut stmt = connection.prepare("SELECT * FROM bookmarks WHERE path = ?")?;
+    let bookmark = stmt.query_row(&[&path], |row| {
+        Ok(Bookmark {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            path: row.get(2)?,
+            description: row.get(3)?,
+        })
+    });
+    Ok(bookmark.is_ok())
 }
 
 fn create_table(connection: &rusqlite::Connection) -> Result<(), rusqlite::Error> {

@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 mod rustmarks;
 use clap::{Parser, Subcommand};
-use rustmarks::{add_bookmark, list_bookmarks, remove_bookmark, update_bookmark};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -62,10 +61,18 @@ enum Commands {
     },
 
     // List all bookmarks
-    List {},
+    List {
+        #[arg(short, long, action = clap::ArgAction::SetTrue)]
+        pathsonly: bool,
+    },
 
     // Print the command for selected bookmark
     Command {},
+
+    // Check if a bookmark exists
+    Check {
+        path: Option<String>
+    },
 }
 
 fn main() {
@@ -76,9 +83,9 @@ fn main() {
             name,
             path,
             description,
-        }) => add_bookmark(name, path, description),
-        Some(Commands::Remove { id }) => remove_bookmark(id),
-        Some(Commands::List {}) => list_bookmarks(),
+        }) => rustmarks::add_bookmark(name, path, description),
+        Some(Commands::Remove { id }) => rustmarks::remove_bookmark(id),
+        Some(Commands::List { pathsonly }) => rustmarks::list_bookmarks(pathsonly.clone()),
         Some(Commands::Command {}) => {
             rustmarks::print_command();
         }
@@ -88,7 +95,10 @@ fn main() {
             name,
             description,
         }) => {
-            update_bookmark(id, name, path, description);
+            rustmarks::update_bookmark(id, name, path, description);
+        }
+        Some(Commands::Check { path }) => {
+            rustmarks::check_bookmark(path);
         }
         None => {
             rustmarks::main();
